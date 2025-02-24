@@ -1,0 +1,12 @@
+# python=3.11
+# install pytorch first following https://pytorch.org/get-started/locally/
+
+opencv-python
+tqdm
+matplotlib
+easydict
+pandas
+scipy
+torchmetrics
+pyqt5
+palettable 
