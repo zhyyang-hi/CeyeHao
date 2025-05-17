@@ -15,7 +15,7 @@ from utils.data_process import (
 from utils.visualization import (
     plot_tt_vf,
     plot_obstacle,
-    plot_pf_tensor,
+    plot_fp_tensor,
     fig2np,
     generate_autocad_script,
     create_obstacle_figure,
@@ -211,9 +211,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def get_obs_param(self):
         """get the parameters of the selected obstacle in final list."""
         # update the tmp obstacle coord, pos and the tt from fin obstacle list
-        self.obs_coord_tmp = self.obs_coord_fin[self.selected_obstacle - 1]
-        self.obs_pos_tmp = self.obs_pos_fin[self.selected_obstacle - 1]
-        self.tt_tmp[:] = self.tt_fin[self.selected_obstacle - 1]
+        self.obs_coord_tmp = self.obs_coord_fin[self.selected_obstacle - 1].copy()
+        self.obs_pos_tmp = self.obs_pos_fin[self.selected_obstacle - 1].copy()
+        self.tt_tmp[:] = self.tt_fin[self.selected_obstacle - 1].copy()
 
         self._refresh_obs_param_panel()
         self.draw_obs(self.obs_coord_tmp, self.obs_pos_tmp, self.s_preview)
@@ -221,7 +221,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.draw_profile(self.profiles_fin[self.selected_obstacle], self.pint_preview)
 
     def set_obs_param(self):
-        self.obs_coord_fin[self.selected_obstacle - 1] = self.obs_coord_tmp
+        self.obs_coord_fin[self.selected_obstacle - 1] = self.obs_coord_tmp.copy()
         self.obs_pos_fin[self.selected_obstacle - 1] = self.obs_pos_tmp
 
         print(
@@ -239,6 +239,7 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
         self.update_tt_p_temp()
+        self.tt_fin[self.selected_obstacle - 1] = self.tt_tmp.copy()
         self.draw_tt(self.tt_tmp, self.dtm_preview)
         self.update_pint_fin(self.selected_obstacle)
 
@@ -252,7 +253,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def get_pin_param(self):
         self.flag_getting = True
-        self.pin_param_tmp[:] = self.pin_param_fin
+        self.pin_param_tmp[:] = self.pin_param_fin.copy()
         for i, item in enumerate(self.pin_sbs):
             item.setValue(self.pin_param_tmp[i])
         self.flag_getting = False
@@ -260,7 +261,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.draw_pin(self.pin_param_tmp, self.pin_preview)
 
     def set_pin_param(self):
-        self.pin_param_fin[:] = self.pin_param_tmp
+        self.pin_param_fin[:] = self.pin_param_tmp.copy()
         print(f"Input profile param updated:\n{self.pin_param_fin}")
         self.profiles_fin[0] = self.draw_pin(self.pin_param_fin, self.p_in)
         self.update_pint_fin(1)
@@ -276,7 +277,7 @@ class MainWindow(QtWidgets.QMainWindow):
         with Timer() as t:
             self.tt_tmp = self.predict_tt(self.bkgd_obs_mat, self.obs_pos_tmp)
         self.draw_tt(self.tt_tmp, self.dtm_preview)
-        self.tt_fin[self.selected_obstacle - 1] = self.tt_tmp
+        # self.tt_fin[self.selected_obstacle - 1] = self.tt_tmp???
         # update the pint preview
         self.pint_tmp = self.compute_p(
             self.profiles_fin[self.selected_obstacle - 1], self.tt_tmp
@@ -296,7 +297,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tt_tmp = self.predict_tt(
                 self.bkgd_obs_mat, self.obs_pos_fin[obs_no - 1]
             )
-        self.tt_fin[obs_no - 1] = self.tt_tmp
+        self.tt_fin[obs_no - 1] = self.tt_tmp.copy()
         print(f"tt of obstacle {obs_no} updated")
 
     def update_pint_fin(self, start_obs_no):
@@ -327,8 +328,8 @@ class MainWindow(QtWidgets.QMainWindow):
         widget.ax.set_ylim(0, param[17])
 
     def draw_pin(self, param, widget):
-        pin_mat = gen_pin_tensor(param, self.res, param_scale=True)
-        plot_pf_tensor(pin_mat, widget.ax)
+        pin_mat = gen_pin_tensor(param.reshape(3,2).T, self.res, param_scale=True).squeeze()
+        plot_fp_tensor(pin_mat, widget.ax)
         widget.draw()
         return pin_mat
 
@@ -337,7 +338,7 @@ class MainWindow(QtWidgets.QMainWindow):
         widget.draw()
 
     def draw_profile(self, profile_img, widget):
-        plot_pf_tensor(profile_img, widget.ax)
+        plot_fp_tensor(profile_img, widget.ax)
         widget.draw()
 
     def predict_tt(self, obs_img, pos):
@@ -409,10 +410,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def auto_update(self, update_pin=False):
         """automatic assign temp inlet profile and obstacle to the finalized list, and update the tt list and temp profile"""
         if update_pin:  # when inlet profile is modified
-            self.pin_param_fin[:] = self.pin_param_tmp
+            self.pin_param_fin[:] = self.pin_param_tmp.copy()
             self.profiles_fin[0] = self.draw_pin(self.pin_param_fin, self.p_in)
         else:  # or when the obstacle is modified
-            self.obs_coord_fin[self.selected_obstacle - 1] = self.obs_coord_tmp
+            self.obs_coord_fin[self.selected_obstacle - 1] = self.obs_coord_tmp.copy()
             self.obs_pos_fin[self.selected_obstacle - 1] = self.obs_pos_tmp
             print(
                 f"obstacle #{self.selected_obstacle} param updated:\
@@ -425,6 +426,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # update temp previews and tt list
             self.update_tt_p_temp()
+            self.tt_fin[self.selected_obstacle - 1] = self.tt_tmp.copy()
             # update final obstacle view.
             self.draw_obs(
                 self.obs_coord_fin[self.selected_obstacle - 1],

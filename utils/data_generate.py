@@ -11,120 +11,99 @@ import os
 from utils.io import find_index
 
 
-class ObstacleParameterGenerator:
+class HAOParamSampler:
+    """generate the coordinates for HAOs. Assume microchannel width is 1."""
+
     def __init__(
         self,
-        cw=0.0003,
         num_seg=5,
-        x0_range=0.000175,
-        mean_sl=0.00015,
-        var_sl=0.4,
-        name: str = "zigzag",
+        xi0_half_interval=0.000175 / 0.0003,
+        mean_delta_x=0.00015 / 0.0003,
+        var_delta_x=0.4 * 0.00015 / 0.0003,
+        yi_a=10,
+        yi_b=4,
+        # TODO, rewrite by define sw_min, sw_max.
     ) -> None:
-        self.name = name
         self.param = None
-        self.meta_param = {
-            "cw": cw,
+        self.coord_meta = {
             "num_seg": num_seg,
-            "x0_range": x0_range,
-            "mean_sl": mean_sl,
-            "var_sl": var_sl,
+            "xi0_half_interval": xi0_half_interval,
+            "mean_delta_x": mean_delta_x,
+            "var_delta_x": var_delta_x,
+            "yi_a": yi_a,
+            "yi_b": yi_b,
         }
 
-    def y_cal_batch(self, param_list, cw):
-        """receive a param_list for obstacles, convert the columns of the y weights into coordinates."""
-        ratio_cols = param_list[:, 5::3]
-        n_seg = ratio_cols.size(1)
-        ratio_cols = ratio_cols * (10 - n_seg) + 4
-        sw = ratio_cols / ratio_cols.sum(1, True) * cw
+    @staticmethod
+    def compute_yi(param: np.ndarray, a=10, b=4):
+        """
+        scale y params by y*(a-num_seg)+b and then convert to weights"""
+        modified_param = param.copy()
+        ratio_cols = modified_param[..., 5::3]
+        num_seg = ratio_cols.shape[-1]
+        ratio_cols = ratio_cols * (a - num_seg) + b
+        sw = ratio_cols / ratio_cols.sum(-1, keepdims=True)
 
-        y_coords = torch.zeros_like(sw)
-        for i in range(sw.size(1)):
-            y_coords[:, i] = torch.sum(sw[:, 0 : i + 1], 1)
+        y_coords = np.cumsum(sw, axis=-1)
 
-        param_list[:, 5::3] = y_coords
-        param_list[:, 2] = 0
+        modified_param[..., 5::3] = y_coords.round(6)
+        modified_param[..., 2] = 0
+        return modified_param
 
-        return param_list
+    # TODO check compute yi is bug free
 
-    def gen_param(self, num_obs, quasi_rand=True):
+    def sample_coords(self, num_obs, quasi_rand=True):
         """generate a tensor of parameter list for  obstacle simulation.
         for each obstacle the parameters are: [xn0, xn1, yn for n in linspace(0,5)]
-        param meaning:
-            xn:     axial position of stramfront obstacle corner, ranging (-1,1)*x0_range
-            sln:    obstacle length, ranging (0.5,1.5)*mid_sl
-            yn:     y position of each row of corner.
-
-        yn starts sampled as ratio
 
         """
-        num_seg = self.meta_param["num_seg"]
-        x0_range = self.meta_param["x0_range"]
-        mean_sl = self.meta_param["mean_sl"]
-        var_sl = self.meta_param["var_sl"]
-        cw = self.meta_param["cw"]
+        pass
+        param = self.sample_param(num_obs, self.coord_meta["num_seg"], quasi_rand)
+        coords = self.param2coord(param)
+        self.param = param
+        self.coords = coords
+        return coords
 
+    @staticmethod
+    def sample_param(num_obs, num_seg, quasi_rand=True):
         num_param = (num_seg + 1) * 3
+
         if quasi_rand:
             soboleng = torch.quasirandom.SobolEngine(dimension=num_param)
-            param_list = soboleng.draw(num_obs)
+            param = soboleng.draw(num_obs)
         else:
-            param_list = torch.rand((num_obs, num_param))
+            param = torch.rand((num_obs, num_param))
+        param = param.detach().numpy()
+        return param
 
-        # convert y weights into y coordinates
-        param_list = self.y_cal_batch(param_list, cw)
+    @staticmethod
+    def param2coord(param, metadata):
+        """param of shape (..., n)"""
+        coords = HAOParamSampler.compute_yi(param, metadata["yi_a"], metadata["yi_b"])
+        # scale x0 to [-xi0_range, xi0_range]
+        coords[..., 0::3] = (2 * coords[..., 0::3] - 1) * metadata["xi0_half_interval"]
 
-        # convert x ratio into coords
-        param_list[:, 0::3] = param_list[:, 0::3] * x0_range * 2 - x0_range
-
-        # convert obstacle length ratio into x coordinates of downstream corners
-        param_list[:, 1::3] = (
-            param_list[:, 1::3] * var_sl * 2 - var_sl + 1
-        ) * mean_sl + param_list[:, 0::3]
-
-        # add index to each obstacle
-        param_index = torch.arange(0, num_obs).reshape((num_obs, 1))
-        param_list = torch.cat((param_index, param_list), 1)
-        self.param = param_list
-        return param_list
-
-    def draw_obs(self, index):
-        """draw obstacles from the paramlist (not coordinates. dont mess up with the coordinates.) in the sample"""
-        x0_range = self.meta_param["x0_range"]
-        mean_sl = self.meta_param["mean_sl"]
-        var_sl = self.meta_param["var_sl"]
-        cw = self.meta_param["cw"]
-
-        x_margin = (
-            x0_range  # margin prepared for alternating the obstacle axial position
+        # compute x1= x0 + delta_x, delta_x = mean_delta_x + var_delta_x * rand
+        coords[..., 1::3] = (
+            (2 * coords[..., 1::3] - 1) * metadata["var_delta_x"]
+            + metadata["mean_delta_x"]
+            + coords[..., 0::3]
         )
-        xlim0 = -x0_range - x_margin
-        xlim1 = x0_range + (1 + var_sl) * mean_sl + x_margin
-        box_aspect = cw / (xlim1 - xlim0)
+        return coords
 
-        fig = plt.figure(index, figsize=(5, 5 * box_aspect), dpi=600)
-        ax = fig.add_axes(
-            [0, 0, 1, 1], xlim=[xlim0, xlim1], ylim=[0, cw], aspect="equal"
-        )
+    @staticmethod
+    def get_widths_from_coords(coords: np.ndarray):
+        """coords of shape (..., 3*(num_seg+1))"""
+        y = coords[..., 2::3]
+        width = y[..., 1:] - y[..., :-1]
+        return width
 
-        p = self.param[index][1:]
-
-        x = torch.cat((p[0::3], torch.flip(p[1::3], dims=(0,))))
-        y = torch.cat((p[2::3], torch.flip(p[2::3], dims=(0,))))
-        xy = torch.stack((x, y), dim=1)
-
-        ax.add_patch(mpatches.Polygon(xy, closed=True))
-        plt.axis("off")
-        return fig
-
-    def export_obs_images(self, save_dir, index_list):
-        for i in tqdm(list(index_list)):
-            fname = f"{save_dir}/{self.name}-{i}.png"
-            fig = self.draw_obs(i)
-            plt.figure(i)
-
-            plt.savefig(fname)
-            plt.close(i)
+    def get_widths_from_params(self, params: np.ndarray):
+        """coords of shape (..., 3*(num_seg+1))"""
+        coords = self.param2coord(params)
+        y = coords[..., 2::3]
+        width = y[..., 1:] - y[..., :-1]
+        return width
 
     def save(self, fname):
         with open(fname, "wb") as pickle_out:
@@ -149,43 +128,6 @@ class ObstacleParameterGenerator:
             fname + "_np.txt", self.param, fmt="%.7f", delimiter=",", newline="\n"
         )
         print(f"File saved as '{fname}_COMSOL.txt' and '{fname}_np.txt'")
-
-
-def draw_obs_grid(param_list, index_range, cw):
-
-    if isinstance(param_list, torch.Tensor) is False:
-        param_list = torch.from_numpy(param_list)
-
-    p = param_list[:, 1:]
-    p = p.reshape((p.size(0), -1, 3))
-
-    n_obs = index_range[1] - index_range[0]
-
-    plt.figure(figsize=[15, 12])
-    for i in range(n_obs):
-        current_obs = p[index_range[0] + i]
-        plt.subplot(
-            math.ceil(n_obs / 3), 3, i + 1, xlim=[-1.5 * cw, 1.5 * cw], ylim=[0, cw]
-        )
-        plt.plot(
-            current_obs[:, 0],
-            current_obs[:, 2],
-            "b",
-            current_obs[:, 1],
-            current_obs[:, 2],
-            "b",
-        )
-        plt.plot(
-            current_obs[0, 0:2].tolist(),
-            [current_obs[0, 2], current_obs[0, 2]],
-            "b",
-            current_obs[-1, 0:2].tolist(),
-            [current_obs[-1, 2], current_obs[-1, 2]],
-            "b",
-        )
-        plt.axis("off")
-        plt.title(f"{index_range[0]+i}")
-    plt.show()
 
 
 def stl_start_grid(
@@ -237,8 +179,8 @@ def stl_start_grid(
 class StreamlineDataProcessor:
     def __init__(
         self,
-        cw,
-        res,
+        cw:list,
+        res:list,
         raw_sl_dir=None,
         output_dir=None,
     ) -> None:
@@ -262,10 +204,10 @@ class StreamlineDataProcessor:
         for sl in tqdm(self.raw_sl_list):
             self.preprocess_single(os.path.join(raw_dir, sl), output_dir)
 
-    def preprocess_single(self, raw_fname, output_dir=None):
+    def preprocess_single(self, raw_fname, output_dir=None, nan_imputation=True, mr=0):
         output_dir = output_dir or self.output_dir
         sl_df = self.load_stl(raw_fname)
-        sl_mat = self.sl2mat(sl_df, self.cw, self.res)
+        sl_mat = self.sl2mat(sl_df, self.cw, self.res, nan_imputation, mr)
         if output_dir:
             save_fname = os.path.join(
                 output_dir, os.path.basename(raw_fname).replace(".txt", ".npy")
@@ -287,11 +229,17 @@ class StreamlineDataProcessor:
         return sorted_sl
 
     @staticmethod
-    def sl2mat(pd_sl_list, cw: list, res: list, nan_imputation=True):
+    def sl2mat(pd_sl_list, cw: list, res: list, nan_imputation=True, mr=0):
+        w_min = min(cw[0]*mr, 0)
+        w_max = max(cw[0]* (1+mr), cw[0])
+        h_res = int(res[0]* (1+abs(mr)))
         # assert y start is within the channel width
         assert (
-            pd_sl_list["y end"].max() <= cw[0] and pd_sl_list["z end"].max() <= cw[1]
-        ), "start coord out of channel dimension."
+            pd_sl_list["y end"].max() <= w_max  and pd_sl_list["y end"].min() >= w_min
+        ), "Y  coord out of channel dimension."
+        assert (
+              pd_sl_list["z end"].max() <= cw[1] and pd_sl_list["z end"].min() >=0 
+        ), "Z  coord out of channel dimension."
 
         # remove incomplete streamlines: start/end distance below regular.
         ave_chn_len = np.round(
@@ -302,7 +250,7 @@ class StreamlineDataProcessor:
         ].iloc[:, [1, 2, 4, 5]]
 
         # list of boundary of each pixel
-        bound_0 = np.linspace(0, cw[0], res[0] + 1)
+        bound_0 = np.linspace(w_min, w_max, h_res + 1)
         bound_1 = np.linspace(0, cw[1], res[1] + 1)
 
         # pixelize only the end points, not the start points.
@@ -315,16 +263,16 @@ class StreamlineDataProcessor:
         sl_list = sl_list.to_numpy()  # to numpy
 
         # rescale start coords to (0 ~ mat_size)
-        sl_list[:, 0] = sl_list[:, 0] / (cw[0] / res[0])
+        sl_list[:, 0] = (sl_list[:, 0]-w_min) / ((w_max-w_min) / h_res)
         sl_list[:, 1] = sl_list[:, 1] / (cw[1] / res[1])
 
-        sl_mat = np.zeros((res[0], res[1], 2))
+        sl_mat = np.zeros((h_res, res[1], 2))
         sl_mat[:, :] = None
         for sl in sl_list:
             sl_mat[int(sl[2]), int(sl[3])] = [sl[0], sl[1]]
 
         # from inlet coord to displacement
-        end_coord = np.indices([res[0], res[1]]).transpose([1, 2, 0]) + 0.5
+        end_coord = np.indices([h_res, res[1]]).transpose([1, 2, 0]) + 0.5
         displ_mat = sl_mat - end_coord
 
         # remove NaN
@@ -334,6 +282,7 @@ class StreamlineDataProcessor:
 
 
 def NanImputation(tt):
+    """impute the nan value from the raw displacement matrix."""
     x = tt.copy()
     it = 0
     nNaN = np.argwhere(np.isnan(x))
@@ -350,4 +299,21 @@ def NanImputation(tt):
         it += 1
         nNaN = np.argwhere(np.isnan(x))
         print("remaining number of missing value:", nNaN.shape[0])
+    return x
+
+
+def laplace_sampler(size, miu: float, b: float, rng=None):
+    """sampling from laplace distribution
+    laplace distribution: x = miu +- b * ln(2*b*p), where p in output of laplace pdf"""
+    rng = rng if rng else np.random.default_rng()
+    u, r = np.random.uniform(0, 1, (2,) + size)
+    x = miu + np.sign(r - 0.5) * b * np.log(u)  # beta range from [ninf, pinf]
+    return x
+
+
+def laplace_quantile(quantile, miu, b):
+    if quantile >= 0.5:
+        x = miu - b * np.log(2 - 2 * quantile)
+    else:
+        x = miu + b * np.log(2 * quantile)
     return x

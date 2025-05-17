@@ -1,5 +1,4 @@
-"""perceptual laccuracy modified from https://gist.github.com/alper111/8233cdb0414b4cb5853f2f730ab95a49
-"""
+"""perceptual laccuracy modified from https://gist.github.com/alper111/8233cdb0414b4cb5853f2f730ab95a49"""
 
 import numpy as np
 import torch
@@ -7,14 +6,17 @@ import cv2
 import torchvision
 from easydict import EasyDict
 from tqdm import tqdm
+from scipy.signal import convolve2d
+from skimage.metrics import structural_similarity
 
 
 class PixelwiseAccuracy(object):
     """Pixelwise accurcy metric for evaluating transforamtion tensor and profiles."""
 
     def __init__(self, acc_cfg: EasyDict) -> None:
-        assert hasattr(
-            acc_cfg, "op_flags"
+
+        assert (
+            "op_flags" in acc_cfg.keys()
         ), "cfg should contain an flag to dictate pixelwise accuracy operation"
         self.op_dict = {
             "IoU": self.calc_IoU,
@@ -26,17 +28,18 @@ class PixelwiseAccuracy(object):
         self.acc_cfg = acc_cfg
         self.operations = []
         op_flags = acc_cfg.op_flags
-
-        tqdm.write(f"pixelwise accuracy operations:{op_flags}")
-        if any([op == "match" for op in op_flags]):
-            tqdm.write(
-                f"Matching error thresholds: {acc_cfg.matching_error_thresholds}"
-            )
-
         for i in op_flags:
             self.operations.append(self.op_dict[i])
+        if "matching_error_thresholds" in acc_cfg.keys():
+            if type(self.acc_cfg.matching_error_thresholds) is not list:
+                self.matching_error_thresholds = [
+                    self.acc_cfg.matching_error_thresholds,
+                ]
+        else:
+            self.matching_error_thresholds = [0]
+
     def __call__(self, samples: list):
-        """samples: list of np.ndarray, each element is a tensor of shape ((B,) H, W, C)"""
+        """samples: list of np.ndarray, each element is a tensor of shape (B, H, W, C)"""
         assert (
             len(samples) == 2
         ), "samples should contain a test and a reference, in the correct sequence"
@@ -44,12 +47,8 @@ class PixelwiseAccuracy(object):
             samples[0] = samples[0].cpu().detach().numpy()
         if isinstance(samples[1], torch.Tensor):
             samples[1] = samples[1].cpu().detach().numpy()
-        if samples[0].ndim == 3:
-            samples = [
-                np.expand_dims(i, axis=0) for i in samples
-            ]  # shape to B, H, W, C
+        data = np.array(samples)  # shape to 2, B, W, H, C
 
-        data = np.array(samples)  # shape to 2, B, H, W, C
         for i in self.operations:
             data = i(data)
         return data
@@ -59,7 +58,7 @@ class PixelwiseAccuracy(object):
         union_positive = (samples[0] | samples[1]).sum(axis=(-3, -2, -1))
 
         intersection_positive = (samples[0] & samples[1]).sum(axis=(-3, -2, -1))
-        return intersection_positive / union_positive
+        return intersection_positive / union_positive  # shape (B,)
 
     def matching_rate(self, samples):
         """percentage of matched points with error below the specified threshold.
@@ -69,30 +68,28 @@ class PixelwiseAccuracy(object):
         return:
         acc: np.ndarray of shape (B, (num_thres))"""
         num_points = np.prod(samples.shape[2:])  # H*W*C
-        if type(self.acc_cfg.matching_error_thresholds) is not list:
-            thres = [
-                self.acc_cfg.matching_error_thresholds,
-            ]
-        else:
-            thres = self.acc_cfg.matching_error_thresholds
+        thres = self.matching_error_thresholds
         limits = np.array(
             [np.full(samples.shape[1:], limit) for limit in thres]
         )  # num_thres, B, H, W, C
         normalized_abs_diff = np.abs((samples[0] - samples[1]) / (samples[1] + 1e-6))
-        normalized_abs_diff = np.expand_dims(normalized_abs_diff, axis=0) # 1, B, H, W, C
+        normalized_abs_diff = np.expand_dims(
+            normalized_abs_diff, axis=0
+        )  # 1, B, H, W, C
         matched = np.sum(
             normalized_abs_diff <= limits,
             axis=tuple(range(2, normalized_abs_diff.ndim)),
-        ) # num_thres, B
+        )  # num_thres, B
         acc = matched / num_points
         # transofrm to shape (B, num_thres)
         acc = acc.transpose(1, 0)
+        if acc.shape[-1] == 1:
+            acc = acc.squeeze(-1)
         return acc
 
     def edge_detect(self, samples: list):
-        """current implementation is for singel channel only"""
         for i in range(len(samples)):
-            samples[i] = self.find_edge(samples[i])
+            samples[i] = self.dilated_edge(samples[i])
         return samples
 
     def round(self, samples: list, n=0):
@@ -101,25 +98,25 @@ class PixelwiseAccuracy(object):
         return samples
 
     @staticmethod
-    def find_edge(img: np.ndarray):
+    def dilated_edge(img: np.ndarray, dilation=5):
         """input shape (B, H, W, C)
-        find the edge of the profile image (cv2 standard, single channel)
-        Warning: current implementation only support single channel"""
-        img_ = img.squeeze()  # suppress channel dimension, which should equal to 1.
-        grad = np.gradient(img_, axis=(-2, -1))
-        grad = (np.abs(grad[0]) + np.abs(grad[1])) > 0
-        edge = grad.astype("uint8") * 255  # shape (B, H, W)
+        find the edge of the profile image (cv2 standard, single channel)"""
+        grad = np.gradient(img, axis=(-3, -2))
+        grad = (np.abs(grad[0]) + np.abs(grad[1])) / 2
         # take B as channel for cv2.dilate to dialte multichannels together
-        edge = cv2.dilate(edge.transpose(1, 2, 0), np.ones((7, 7))).transpose(2, 0, 1)
-        edge = np.expand_dims(edge, axis=-1)
+        if dilation is not None and dilation > 1:
+            edge = grad.astype("uint8")
+            edge = np.array(
+                [
+                    cv2.dilate(edge[i], np.ones((dilation, dilation)))
+                    for i in range(edge.shape[0])
+                ]
+            )
+        edge = edge[..., np.newaxis]  # add channel dim
         return edge
 
 
 class PerceptualAccuracy(torch.nn.Module):
-    """perceptual accuracy metric for evaluating profiles.
-    supoort only green color profiles only.
-    """
-
     def __init__(
         self,
         acc_cfg=None,
@@ -172,19 +169,16 @@ class PerceptualAccuracy(torch.nn.Module):
                 self.weights = acc_cfg.perceptual_weights[1:]
 
         pixcfg = EasyDict()
-        pixcfg.pix_acc_op_flags = ["match"]
+        pixcfg.op_flags = ["match"]
         pixcfg.matching_error_thresholds = 0.0
         self.pixel_metric = PixelwiseAccuracy(pixcfg)
 
     def __call__(self, samples, ref_cfc=False):
-        """input samples should be
-
+        """
         Args:
-            samples: a list of two np.ndarray of test and reference, shape ((B,) H, W, C)
+            samples: np.ndarray of test and reference, shape (2, (B,) H, W, C)
             ref_cfc (bool, optional): wether apply image process for confocal image to the ref.
 
-        Returns:
-            _type_: _description_
         """
         test, ref = samples
         if len(test.shape) == 3:
@@ -201,7 +195,7 @@ class PerceptualAccuracy(torch.nn.Module):
             y = block(y)
             acc = self.pixel_metric([x.cpu(), y.cpu()])
             accuracy.append(acc)
-        accuracy = np.stack(accuracy, axis=1)
+        accuracy = np.concatenate(accuracy, axis=-1)
         if self.include_pix_acc:
             pix_acc = self.pixel_metric([test[:, :, 1], ref[:, :, 1]])
             accuracy = np.concatenate(
@@ -212,39 +206,41 @@ class PerceptualAccuracy(torch.nn.Module):
                     accuracy,
                 ]
             )
-            accuracy = np.average(accuracy, weights=self.weights, axis=1)
+            accuracy = np.average(accuracy, weights=self.weights, axis=-1)
         else:
-            accuracy = np.average(accuracy, weights=self.weights, axis=1)
+            accuracy = np.average(accuracy, weights=self.weights, axis=-1)
 
-        return accuracy
+        return accuracy  # shape (B,)
 
     def pre_img_process(self, img: np.ndarray, out_size=(224, 224), cfc_img=False):
         """
-        [currently only support single channel comparison, positive or negative]
-        preprocess the image to compare perceptual similarity.
         allowed image format:
-        - (H, W): single channel image
+        - (H, W, (1)): single channel image
         - (H, W, 3): 3-channel image
-        - (B, H, W): stack of single channel images
-        - (B, H, W, 3): stack of 3-channel images
+        - (B, H, W, ): batch of single channel images
+        - (B, H, W, 3): batch of 3-channel images
         processes:
         1. unify the number of channel to 3, by adding empty channels.
         2. unify the size of the image.
         3. for confocal images (cfc_img=True), apply gaussian blur and adaptive thresholding.
         4. binarize the image value.
         """
-        if img.shape[-1] != 3:  # single channel image
-            img = np.expand_dims(img, axis=-1)
+        im_shape = img.shape
+        if img.shape[-1] != 3:
+            if img.shape[-1] != 1:  # ((B),H,W)
+                img = img[..., np.newaxis]
             empty_chn = np.zeros(img.shape)
             img = np.concatenate([empty_chn, img, empty_chn], axis=-1)
-        elif img.shape[-1] == 3:
-            # only keep green channel
-            img[:, :, [0, 2]] = 0
 
         if img.ndim == 3:  # sinlge image
             img = np.expand_dims(img, axis=0)
         elif img.ndim == 4:
             pass
+        else:
+            raise ValueError(
+                f"pre_img_process does not accept image of shape{im_shape}"
+            )
+
         # resize the image
         new_img = []
         for im in img:
@@ -316,3 +312,66 @@ def calc_matching_rate(a, b, threshold=0):
     if len(matched.shape) == 1:
         matched = matched[np.newaxis, ...]
     return matched / np.prod(a.shape[-3:])
+
+
+def get_edge(fp_tensor: np.ndarray, horin_weight=1, vert_weight=1):
+    """input shape ((B,) H, W, C).
+    find the edge of the profile image (cv2 standard, single channel)"""
+    if fp_tensor.ndim == 3:
+        fp_tensor = fp_tensor[np.newaxis, :]
+    grad = np.gradient(fp_tensor, axis=(-3, -2))
+    grad = horin_weight * (np.abs(grad[0]) > 0) + vert_weight * (np.abs(grad[1]) > 0)
+    return grad  # shape (B, H, W, C)
+
+
+class EdgeScore:
+    def __init__(self, ref_fp, horiz_weight=1, vert_weight=1):
+        self.ref_score = self.edge_sum(ref_fp).squeeze()
+        self.hw = horiz_weight
+        self.vw = vert_weight
+
+    def edge_sum(self, fp_tensor: np.ndarray, horiz_weight=1, vert_weight=1):
+        """input shape ((B,) H, W, C). (cv2 standard, single channel)"""
+        grad = get_edge(fp_tensor, horiz_weight, vert_weight)
+        return grad.sum(tuple(range(1, grad.ndim)))
+
+    def __call__(self, fp_tensor):
+        sum = self.edge_sum(fp_tensor, self.hw, self.vw)
+        return sum.squeeze() / self.ref_score
+
+
+def corr2_squared(l1, l2):
+
+    # Calculate the mean of each array
+    avg_I1 = np.mean(l1)
+    avg_I2 = np.mean(l2)
+
+    # Calculate the differences from the mean
+    diff_I1 = l1 - avg_I1
+    diff_I2 = l2 - avg_I2
+
+    # Calculate the sum of products of differences
+    sum_val = np.sum(diff_I1 * diff_I2)
+
+    # Calculate the variances
+    var21 = np.sum(diff_I1**2)
+    var22 = np.sum(diff_I2**2)
+
+    # Handle zero variance cases
+    zero_variance_mask = var21 * var22 == 0
+    result = np.zeros_like(sum_val)
+
+    # Calculate the squared correlation coefficient
+    result[~zero_variance_mask] = (sum_val[~zero_variance_mask] ** 2) / (
+        var21[~zero_variance_mask] * var22[~zero_variance_mask]
+    )
+
+    return result
+
+def ssim(samples):
+    """input shape 2, b, h, w, c, return shape (b,)"""
+    pouts = samples[0]
+    target = samples[1]
+    return np.array(
+        [structural_similarity(pout, tgt, channel_axis=-1) for pout, tgt in zip(pouts, target)]
+    )

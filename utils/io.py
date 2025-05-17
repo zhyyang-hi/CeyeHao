@@ -42,7 +42,7 @@ def load_cfg_yml(cfg_path):
     return cfg
 
 def convert_cfg_to_dict(cfg):
-    """convert the config object or easydict to native dict."""
+    """convert the config object or easydict object to native dict."""
     if isinstance(cfg, EasyDict):
         cfg = cfg.__dict__
     for k, v in cfg.items():
@@ -127,3 +127,4 @@ def write_obs_param_list(f, obs_nos, coords, poses):
     """write a list of obstacle data to a file."""
     for obs_no, coord, pos in zip(obs_nos, coords, poses):
         write_obs_param(f, obs_no, coord, pos)
+

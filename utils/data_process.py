@@ -11,35 +11,67 @@ from utils.visualization import plot_obstacle, create_obstacle_figure, fig2np
 
 def gen_pin_tensor(
     param: Union[np.ndarray, list],
-    pf_res: list = [200, 200],
+    fp_res: list = [200, 200],
     param_scale=True,
-    dtype=np.uint8 
+    dtype=np.uint8,
+    mr=0.,
 ):
     """generate the input profile matrix and plot from the stream band start/end positions.
     Args:
-        param (np.ndarray): (band1_left_bound, band2_left_bound, ...)
-        res (list): resolution of the input file
+        param (np.ndarray): shape ((b),2, c) where b is the batchsize of pin and c is the number of stripes in each pin.
+            each strips is defiend by the L/R boundary position and exclusively takes a image channel.
+        fp_res (list): resolution of pin.
         ax (mpl.axes.Axes): axes to plot on.
-        param_scale (bool, optional): if set to False, the param should be given in 0-pf_res. otherwise param is in 0-99。
+        param_scale (bool, optional): if set to False, the param should be given in 0-pf_res. otherwise param is in [0,100).
         dtype (np.dtype, optional): the dtype of the returned tensor. uint8 or bool. Defaults to np.uint8.
+    Returns:
+        np.ndarray: a batch of pins of shape (b, H, W, c)
     """
-    if type(param) == list:
+    if type(param) != np.ndarray:
         param = np.array(param)
+
+    if param.ndim == 2:
+        assert (
+            param.shape[0] == 2
+        ), f"params of a single input flow profile should be gien in shape (2, c), but got {param.shape}"
+        param = param[np.newaxis, :]
+
+    elif param.ndim == 3:
+        assert (
+            param.shape[1] == 2
+        ), f"Pin param should be of shape (b,2,c), but got{param.shape}"
+        pass
+    else:
+        raise ValueError(
+            f"incorrect pin param shape, should be ((b),2, c), but got {param.shape}"
+        )
+
+    num_fps = param.shape[0]
+    num_stripes = param.shape[2]
+
     if param_scale:
-        band_value_scale = pf_res[0] / 100
+        band_value_scale = fp_res[0] / 100
         param = (param * band_value_scale).astype(int)
     # axes aligned with y/z axes of microchannel space, not the axes of image
-    if len(param) == 2:
-        pin_mat = np.zeros((pf_res[0], pf_res[1], 1), dtype=dtype)
-        pin_mat[param[0] : param[1]] = 255  # G
-    else:
-        pin_mat = np.zeros((pf_res[0], pf_res[1], 3), dtype=dtype)
-        pin_mat[param[0] : (param[1]), :, 0] = 255  # R
-        pin_mat[param[2] : (param[3]), :, 1] = 255  # G
-        pin_mat[param[4] : (param[5]), :, 2] = 255  # B
-    
+    pins = np.zeros((num_fps, fp_res[0], fp_res[1], num_stripes), dtype=dtype)
+    for i in range(num_fps):
+        for j in range(num_stripes):
+            pins[i, param[i, 0, j] : param[i, 1, j], :, j] = 255
 
-    return pin_mat
+    if mr != 0:
+        new_w = int(fp_res[0]*(1+abs(mr)))
+        dw = int(fp_res[0]*abs(mr))
+        m_pin = np.zeros((num_fps, new_w, fp_res[1], num_stripes), dtype=dtype)
+        if mr<0:
+            m_pin[:, :new_w-dw, fp_res[1]//2:, :] = pins[:,:, fp_res[1]//2:, :]
+            m_pin[:, dw:, :fp_res[1]//2, :] = pins[:,:, :fp_res[1]//2, :]
+        elif mr>0:
+            m_pin[:, :new_w-dw, :fp_res[1]//2, :] = pins[:,:, :fp_res[1]//2, :]
+            m_pin[:, dw:, fp_res[1]//2:, :] = pins[:,:, fp_res[1]//2:, :]
+        pins = m_pin
+
+
+    return pins
 
 
 def tt_postprocess(tt: np.ndarray | torch.Tensor):
@@ -68,6 +100,7 @@ def tt_postprocess(tt: np.ndarray | torch.Tensor):
 def p_transform(pin: np.ndarray, tts: np.ndarray | torch.Tensor, full_p_records=False):
     """Compute the output profile given a transformation matrix and input profile
     tts of shape of (H,W,2) or (n,H,W,2)
+    pins pf shape (H,W,...)
     """
     assert tts.ndim in [3, 4], "number of dimensions of tt(s) should be 3 or 4"
     assert tts.shape[-1] == 2, "tt shape should be (H,W,2)"
@@ -206,114 +239,63 @@ def obs_param_convert(stp: np.ndarray, cw=3e-4):
 
 
 class InflowCalculator:
-    """calculate the inflow rate of each inlet branch to create a target inlet flow profile"""
+    """computes the flow rate ratio or flow width ratio of each stripe in the inflow profile.
+    consider a flow velocity parabollic curve with roots 0 and 1 (i.e. chn width =1), with total flow rate =1
+    """
 
-    def __init__(self, chn_width, total_flow_rate, verbose=True):
-        self.chn_width = chn_width
-        self.total_flow_rate = total_flow_rate  # the physical flow rates.
-        self.total_fr = self.area_under_curve(
-            0, chn_width
-        )  # i.e. total flow rate, for computation
+    def __init__(self, verbose=True):
         self.verbose = verbose
-        self.flow_rates = np.array(
-            [1 / 3 * total_flow_rate, 1 / 3 * total_flow_rate, 1 / 3 * total_flow_rate]
-        )
-        self.set_flow_rates(self.flow_rates[0], self.flow_rates[1], self.flow_rates[2])
 
-    def print_info(self):
-        print(f"\nchannel width in pixel: {self.chn_width}")
-        print(f"total flow rate: {self.total_flow_rate}")
-        print(
-            f"flow rates: {self.flow_rates[0]:.0f}, {self.flow_rates[1]:.0f}, {self.flow_rates[2]:.0f}"
-        )
-        print(
-            f"flow rate ratio: {self.flow_rates_ratio[0]:.3f}, {self.flow_rates_ratio[1]:.3f}, {self.flow_rates_ratio[2]:.3f}"
-        )
-        print(
-            f"stream width:{self.widths[0]:.3f}, {self.widths[1]:.3f}, {self.widths[2]:.3f}"
-        )
-        print(
-            f"stream interfaces: {self.widths[0]:.3f}, {self.widths[0]+self.widths[1]:.3f}"
-        )
+    def area_func(self, x):
+        return 3 * x**2 - 2 * x**3
 
-    def set_flow_rates(self, fr1, fr2, fr3):
-        """given the inflow rate of each stream, find the width of each stream
+    def coeff(self, x):
+        # coefficients of the area functin to solve
+        return np.stack([np.full_like(x, -2), np.full_like(x, 3), np.zeros_like(x), -x])
 
-        Args:
-            fr1 (float): flow rate of stream 1
-            fr2 (float): flow rate of stream 2
-            fr3 (float): flow rate of stream 3
-            chn_width (int, optional): width of channel. Defaults to 1.
-        """
-        self.total_flow_rate = fr1 + fr2 + fr3
-        p1 = fr1 / (fr1 + fr2 + fr3)
-        p2 = fr2 / (fr1 + fr2 + fr3)
-        p3 = fr3 / (fr1 + fr2 + fr3)
-        w1 = self.find_target_x(self.chn_width, p1)
-        w3 = self.find_target_x(self.chn_width, p3)
-        w2 = self.chn_width - w1 - w3
-        self.flow_rates = np.array([fr1, fr2, fr3])
-        self.flow_rates_ratio = np.array([p1, p2, p3])
-        self.widths = np.array([w1, w2, w3])
+    def calc_fr_ratio(self, wr1, wr2, wr3):
+        """wr1 ~ wr3 given in the w:0->1 direction"""
+        # compute the area betwwen wi
+        wr1, wr2, wr3 = np.array((wr1, wr2, wr3))
+        assert (wr1 + wr2 + wr3 == 1).all(), "the width ratio should sum to 1"
+
+        frr1 = self.area_func(wr1)
+        frr2 = self.area_func(wr1 + wr2) - frr1
+        frr3 = 1 - frr1 - frr2
+        frr1, frr2, frr3 = np.array((frr1, frr2, frr3)).round(3)
         if self.verbose:
-            self.print_info()
-        return w1, w2, w3
+            print(f"flow rate ratio: {frr1, frr2, frr3}")
+        return frr1, frr2, frr3
 
-    def set_flow_widths(self, w1, w2, w3):
-        """given the target width of each stream, find the ratio of flow rate of each stream"""
-        self.widths = np.array([w1, w2, w3])
-        self.chn_width = w1 + w2 + w3
-        area = self.area_under_curve(0, self.chn_width, self.chn_width)
-        frr1 = self.area_under_curve(0, w1, self.chn_width) / area
-        frr3 = self.area_under_curve(0, w3, self.chn_width) / area
-        frr2 = 1 - frr1 - frr3
-        self.flow_rates_ratio = np.array([frr1, frr2, frr3])
-        self.flow_rates = self.flow_rates_ratio * self.total_flow_rate
+    def calc_wr_ratio(self, frr1, frr2, frr3):
+        frr1, frr2, frr3 = np.array((frr1, frr2, frr3))
+        assert ((frr1 + frr2 + frr3).round(6) == 1.).all(), "flow rate ratio should sum to 1"
+        # assert rounded to aoivd float computation error
+        wr1 = np.apply_along_axis(np.roots, 0, self.coeff(frr1))[1]
+        wr2 = np.apply_along_axis(np.roots, 0, self.coeff(frr1 + frr2))[1] - wr1
+        wr3 = 1 - wr1 - wr2
+        wr1, wr2, wr3 = np.array([wr1, wr2, wr3]).round(3)
         if self.verbose:
-            self.print_info()
+            print(f"stripe width ratio: {wr1, wr2, wr3}")
+        return wr1, wr2, wr3
 
-    def set_chn_width(self, chn_width):
-        w1, w2, w3 = self.widths[:] / self.chn_width * chn_width
-        self.chn_width = chn_width
-        self.set_flow_widths(w1, w2, w3)
-
-    def set_total_flow_rate(self, total_flow_rate):
-        self.total_flow_rate = total_flow_rate
-        self.flow_rates = self.flow_rates_ratio * total_flow_rate
-        if self.verbose:
-            self.print_info()
-
-    def parabolic_curve(self, x):
-        return -x * (x - self.chn_width)
-
-    def area_under_curve(self, a, b):
-        integral, _ = quad(self.parabolic_curve, a, b)
-        return integral
-
-    def find_target_x(self, root1, p):
-        if not (0 <= p <= 1):
-            raise ValueError("Invalid input. Please make sure 0 <= p <= 1 ")
-
-        area = self.area_under_curve(0, self.chn_width)
-
-        def objective_function(t):
-            return np.abs(self.area_under_curve(0, t) - p * area)
-
-        res = minimize_scalar(
-            objective_function, bounds=(0, self.chn_width), method="bounded"
-        )
-        return res.x
+    def find_r_bound(self, l_bound, frr):
+        frr_l = self.area_func(l_bound)
+        r_bound = np.apply_along_axis(np.roots, 0, self.coeff(frr_l + frr))[1]
+        return r_bound
 
     @staticmethod
-    def compute_pf_vol_ratio(profile: np.ndarray):
+    def estimate_fr_ratio(profile: np.ndarray, verbose=False):
         """compute the flow rate ratio of a arbitrary profile to the total flow rate.
         if input profile is multi-channel, profile is binarized first.
+        ATTENTION: the 2D velocity profile is approximated by v = Cx(1-x)y(1-y). Error exists.
         Args:
             profile (np.ndarray): the flow profile, shape (H,W (,C)).
         """
+        #NOTE treat 3 channel image as single channel.
         if profile.ndim == 3:
             profile = profile.sum(axis=-1)
-            profile = profile > 0
+        profile = profile > 0
 
         res = profile.shape[0]
         # assume channel width is 100, compute the center value of each pixel
@@ -326,35 +308,9 @@ class InflowCalculator:
         weight_matrix = value_list[:, np.newaxis] * value_list[np.newaxis, :]
         total_fr = weight_matrix.sum()
         profile_fr = (profile * weight_matrix).sum()
+        if verbose:
+            print(f"flow rate ratio of target flow profile is {profile_fr / total_fr}")
         return profile_fr / total_fr
-
-    def find_pin_bound(self, flow_rate_ratio, pin_l=None, pin_r=None):
-        if pin_r is None and pin_l is None:
-            pin_l = 0
-            print("pin_start is not specified, set to 0, try find pin_end")
-
-        if pin_r is None:
-            theorectical_max_fr = self.area_under_curve(pin_l, self.chn_width)
-            if theorectical_max_fr < flow_rate_ratio * self.total_fr:
-                bound = self.chn_width
-            else:
-                obj = lambda x: abs(
-                    self.area_under_curve(pin_l, x) - flow_rate_ratio * self.total_fr
-                )
-                bound = minimize_scalar(
-                    obj, bounds=(pin_l, self.chn_width), method="bounded"
-                ).x
-
-        else:
-            theorectical_max_fr = self.area_under_curve(0, pin_r)
-            if theorectical_max_fr < flow_rate_ratio * self.total_fr:
-                pin_l = 0
-            else:
-                obj = lambda x: abs(
-                    self.area_under_curve(x, pin_r) - flow_rate_ratio * self.total_fr
-                )
-                bound = minimize_scalar(obj, bounds=(0, pin_r), method="bounded").x
-        return bound
 
 
 def pf2cv2_img(img: np.ndarray, tar_res=[200, 200]):
@@ -375,4 +331,11 @@ def pf2cv2_img(img: np.ndarray, tar_res=[200, 200]):
 
     img = cv2.resize(img, tar_res, interpolation=cv2.INTER_LINEAR)
     return img
+
+def img2fp_coords(img:np.ndarray):
+    """input/output shape (h,w,c). change the img coordinate system to 
+        microchannel x-section coordiante system. """
+    return np.swapaxes(img,0,1)[:, ::-1,]
+    # return img.transpose([1, 0, 2])[:, ::-1, :]
+
 

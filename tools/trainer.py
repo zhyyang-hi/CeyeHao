@@ -245,16 +245,16 @@ class Trainer:
             model.load_state_dict(
                 torch.load(self.cfg.model_checkpoint, map_location="cpu")
             )
-            if self.cfg.mode == "train":
-                with logging_redirect_tqdm([self.logger]):
-                    self.logger.info(
-                        f"Pretrained model is loaded from {self.cfg.model_checkpoint}"
-                    )
-            else:
-                tqdm.write(f"Loaded model from {self.cfg.model_checkpoint}")
-                model.eval()
+            # if self.cfg.mode == "train":
+            #     with logging_redirect_tqdm([self.logger]):
+            #         self.logger.info(
+            #             f"Pretrained model is loaded from {self.cfg.model_checkpoint}"
+            #         )
+            # else:
+            #     tqdm.write(f"Loaded model from {self.cfg.model_checkpoint}")
+            #     model.eval()
         model.to(self.cfg.device)
-        tqdm.write("Model built.")
+        # tqdm.write("Model built.")
         self.model = model
         return model
 

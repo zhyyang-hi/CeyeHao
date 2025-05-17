@@ -36,7 +36,7 @@ def plot_line(train_x, train_y, valid_x, valid_y, mode, out_dir):
 
 
 def mkdirs(path: str, remove_old: bool = False):
-    """make directory if not exist. 
+    """make directory if not exist.
     Args:
         path : path to make directory
         remove_old : if True, remove old directory and make new one. if False, keep old directory as it is.
@@ -67,47 +67,86 @@ def generate_datetime_folder_tree(exp_path):
     return result_save_folder
 
 
-class Logger(object):
-    def __init__(self, path_log):
-        log_name = os.path.basename(path_log)
-        self.log_name = log_name if log_name else "root"
-        self.out_path = path_log
+# class Logger(object):
+#     def __init__(self, path_log):
+#         log_name = os.path.basename(path_log)
+#         self.log_name = log_name if log_name else "root"
+#         self.out_path = path_log
 
-        log_dir = os.path.dirname(self.out_path)
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir)
+#         log_dir = os.path.dirname(self.out_path)
+#         if not os.path.exists(log_dir):
+#             os.makedirs(log_dir)
 
-    def init_logger(self):
-        logger = logging.getLogger(self.log_name)
-        logger.setLevel(level=logging.INFO)
+#     def init_logger(self):
+#         logger = logging.getLogger(self.log_name)
+#         logger.setLevel(level=logging.INFO)
 
-        # File Handler
-        file_handler = logging.FileHandler(self.out_path, "w")
-        file_handler.setLevel(logging.INFO)
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        file_handler.setFormatter(formatter)
+#         # File Handler
+#         file_handler = logging.FileHandler(self.out_path, "w")
+#         file_handler.setLevel(logging.INFO)
+#         formatter = logging.Formatter(
+#             "%(asctime)s,\t%(message)s",
+#             datefmt='%Y%m%d-%I%M%S'
+#         )
+#         file_handler.setFormatter(formatter)
 
-        # Screen Handler
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        console_handler.setFormatter(
-            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        )
+#         # Screen Handler
+#         console_handler = logging.StreamHandler()
+#         console_handler.setLevel(logging.INFO)
+#         console_handler.setFormatter(
+#             logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+#         )
 
-        # add handler
-        logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
+#         # add handler
+#         logger.addHandler(file_handler)
+#         logger.addHandler(console_handler)
 
-        return logger
+#         return logger
+
+
+class TqdmLoggingHandler(logging.Handler):
+    def __init__(self, level=logging.NOTSET):
+        super().__init__(level)
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            tqdm.write(msg)
+            self.flush()
+        except Exception:
+            self.handleError(record)
+
+
+def get_logger(log_name, log_dir, level=20, file_mode="w"):
+    logger = logging.getLogger(log_name)
+    logger.setLevel(level)
+
+    # File Handler
+    mkdirs(log_dir)
+    file_handler = logging.FileHandler(
+        os.path.join(log_dir, log_name + ".log"), file_mode
+    )
+    file_handler.setLevel(level)
+    formatter = logging.Formatter(
+        "%(asctime)s.%(msecs)03d, %(levelname)s,  %(message)s", datefmt="%y%m%d-%H%M%S"
+    )
+    file_handler.setFormatter(formatter)
+
+    # Screen Handler
+    console_handler = TqdmLoggingHandler()
+    console_handler.setLevel(level)
+    console_handler.setFormatter(formatter)
+
+    # add handler
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    return logger
 
 
 def create_logger(log_root="./log"):
     log_dir = generate_datetime_folder_tree(log_root)
-    path_log = os.path.join(log_dir, "log.log")
-    logger = Logger(path_log)
-    logger = logger.init_logger()
+    logger = get_logger("log", log_dir)
     return logger, log_dir
 
 

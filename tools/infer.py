@@ -21,7 +21,7 @@ class TTPredictor(Trainer):
     """take raw data, apply transform, return the ready-to-use transformation tensor(s)."""
 
     def __init__(self, cfg=None):
-        if cfg is None: # create a default config
+        if cfg is None:  # create a default config
             cfg = load_cfg_yml("../log/CEyeNet/infer_cfg.yml")
         assert cfg.mode == "infer"
         super(TTPredictor, self).__init__(cfg)
@@ -41,8 +41,7 @@ class TTPredictor(Trainer):
             tts (ndarray): shape [(B), H, W, 2]
         """
         obs_imgs = obs_params2imgs(params, pos, self.obs_ax)
-        raw_tts = self.predict_from_obs_img(obs_imgs,postprocess=postprocess)
-        tts = tt_postprocess(raw_tts)
+        tts = self.predict_from_obs_img(obs_imgs, postprocess=postprocess)
         tts = tt_convert(tts, vert_sym=pos)
         return tts
 
@@ -53,7 +52,7 @@ class TTPredictor(Trainer):
             transform: bool, whether to apply transform to the input image.
             postprocess: bool, whether to apply postprocess to the output transformation tensor.
         """
-        
+
         with torch.no_grad():
 
             if len(img.shape) == 3:
@@ -64,7 +63,10 @@ class TTPredictor(Trainer):
                     transformed_img.append(self.transform(i))
                 img = torch.stack(transformed_img)
             img = img.to(self.cfg.device)
-            output = self.model(img)
+            with torch.autocast(
+                device_type=self.cfg.device, dtype=torch.float16, enabled=self.cfg.amp
+            ):
+                output = self.model(img)
             if self.cfg.model == "gvtn":
                 output = output[1]
             # squeeze if only output transforamtion tensor
@@ -72,10 +74,6 @@ class TTPredictor(Trainer):
             if postprocess:
                 output = tt_postprocess(output)
         return output
-    
-
-
-
 
 
 class Plotter:

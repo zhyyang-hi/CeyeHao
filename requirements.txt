@@ -10,3 +10,5 @@ scipy
 torchmetrics
 pyqt5
 palettable 
+pyyaml
+scikit-image

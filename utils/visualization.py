@@ -89,7 +89,7 @@ def plot_tt_streamline(
     ax: mpl.axes.Axes,
     vmin=None,
     vmax=None,
-    cmap='pastel5', # registered above
+    cmap="pastel5",  # registered above
     legend=False,
     linewidth=0.8,
     arrowsize=0.6,
@@ -103,14 +103,16 @@ def plot_tt_streamline(
         tt = tt.detach().cpu().numpy()
         tt = tt.transpose((1, 2, 0))
     res = tt.shape[0:2]
+    # replace the NaN values with 0
+    tt[np.isnan(tt)] = 0
     ax.cla()
     # delete cbar in the figure if exist
     if hasattr(ax, "cbar"):
         ax.cbar.remove()
-    y, x = (
-        np.mgrid[0 : res[0], 0 : res[1]] + 0.5
-    )  # y first as the plot function requires all rows of x must be the same.
     vectors = tt.transpose((1, 0, 2)).astype("int32")  # align the axis as the grid.
+    y, x = (
+        np.mgrid[0 : res[1], 0 : res[0]] + 0.5
+    )  # y first as the plot function requires all rows of x must be the same.
     amplitude = np.sqrt(vectors[:, :, 0] ** 2 + vectors[:, :, 1] ** 2 + 1e-8)
     vmin = 0 if vmin is None else vmin
     vmax = max(res) if vmax is None else vmax
@@ -137,8 +139,11 @@ def plot_tt_streamline(
         plt.rcParams["font.size"] = 8
         plt.rcParams["font.family"] = "Arial"
         ax.cbar = plt.colorbar(
-            mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax, shrink=0.8
+            mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax, shrink=0.8, aspect=15
         )
+        # adjust the linewidth of the edge of colorbar
+        ax.cbar.outline.set_linewidth(0.5)
+        ax.cbar.ax.tick_params(width=0.5)
         ax.cbar.set_label("Displacement magnitude", fontsize=8)
     return ax
 
@@ -299,7 +304,7 @@ def plot_obstacle(
     for_infer: bool = True,
 ):
     if type(p) == np.ndarray:
-        p = torch.tensor(p)
+        p = torch.tensor(p.copy())
     if bool(pos) == True:
         color = SNS_PASTEL["blue"]
     else:
@@ -331,9 +336,14 @@ def create_profile_figure(w_cm=5, h_cm=5, dpi=600):
     return fig, ax
 
 
-def plot_pf_tensor(profile_tensor, ax=None):
-    """plot the profile image with profile tensor."""
-    if profile_tensor.ndim == 2 or profile_tensor.shape[2] == 1:
+def plot_fp_tensor(profile_tensor, ax=None):
+    """plot the profile image with profile tensor.
+    profilr_tensor shape: (H,W,(C))"""
+    shape = profile_tensor.shape
+    if profile_tensor.ndim == 2:
+        profile_tensor = profile_tensor[..., np.newaxis]
+
+    if profile_tensor.shape[2] == 1:
         # append r channel and b channel with all 0
         profile_tensor = np.concatenate(
             [
@@ -345,11 +355,7 @@ def plot_pf_tensor(profile_tensor, ax=None):
         )
     else:
         if profile_tensor.ndim != 3 or profile_tensor.shape[2] != 3:
-            raise ValueError(
-                "The input tensor should have 3 channels or 1 channel, but got shape {}.".format(
-                    profile_tensor.shape
-                )
-            )
+            raise ValueError(f"The profile tensor to be plotted has wrong shape {shape}")
 
     if ax is None:
         fig, ax = create_profile_figure()
