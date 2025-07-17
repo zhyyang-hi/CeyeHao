@@ -48,19 +48,40 @@ The complete directory tree of the codes and data is shown below.
     └── ...
 ```
 
-To run the codes, first install the dependent packages described in `./requirements.txt`
+## Installation
 
-To train a CEyeNet model, run
+### Option 1: Install as a Python Package (Recommended)
+
+1. Install the package in development mode:
+```bash
+python install.py
 ```
-python train.py
+
+Or manually:
+```bash
+pip install -e .
 ```
-To launch the GUI for heuristic design with the pretrained CEyeNet Checkpoint, run
+
+2. Use the CLI commands:
+```bash
+ceyehao gui                    # Launch the GUI
+ceyehao train                  # Run training
+ceyehao search                 # Run search
+ceyehao --help                 # Show help
 ```
-python launch_gui.py
-``` 
-To automatically search the microchannel design, run
+
+### Option 2: Run Scripts Directly
+
+1. Install the dependent packages described in `./requirements.txt`:
+```bash
+pip install -r requirements.txt
 ```
-python search.py
+
+2. Run the scripts:
+```bash
+python ceyehao/train.py        # Train a CEyeNet model
+python ceyehao/search.py       # Automatically search the microchannel design
+python launch_gui.py           # Launch the GUI (legacy script)
 ```
 
 

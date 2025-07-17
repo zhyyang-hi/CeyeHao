@@ -8,13 +8,13 @@
 # searcher()
 
 import torch.multiprocessing as mp
-from tools.inverse_design import InvDesign
+from ceyehao.tools.inverse_design import InvDesign
 import cv2
-from config.config import parse_args
-from utils.utils import mkdirs
+from ceyehao.config.config import parse_args
+from ceyehao.utils.utils import mkdirs
 
 
-if __name__ == "__main__":
+def main():
     args = parse_args()
     LOG_DIR = mkdirs(args.log_dir, remove_old=True)
     TGT_PTH = args.tgt_pth
@@ -39,3 +39,7 @@ if __name__ == "__main__":
         log_dir             =   LOG_DIR,
     )
     searcher.run_task(8, log_level=20)
+
+
+if __name__ == "__main__":
+    main()

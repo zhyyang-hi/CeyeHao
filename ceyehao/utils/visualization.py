@@ -43,7 +43,10 @@ ordered_pastel7 = [
 cmap_ordered_pastel7 = LinearSegmentedColormap.from_list(
     "ordered_pastel7", ordered_pastel7
 )
-mpl.colormaps.register(name="pastel5", cmap=cmap_ordered_pastel7)
+
+# Register colormap only if not already registered
+if "pastel5" not in mpl.colormaps:
+    mpl.colormaps.register(name="pastel5", cmap=cmap_ordered_pastel7)
 
 
 def plot_tt_vf(

@@ -4,15 +4,15 @@ from PyQt5 import QtWidgets, uic
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from utils.utils import Timer
-from tools.infer import TTPredictor
-from utils.data_process import (
+from ceyehao.utils.utils import Timer
+from ceyehao.tools.infer import TTPredictor
+from ceyehao.utils.data_process import (
     gen_pin_tensor,
     p_transform,
     tt_convert,
     obs_param_convert,
 )
-from utils.visualization import (
+from ceyehao.utils.visualization import (
     plot_tt_vf,
     plot_obstacle,
     plot_fp_tensor,
@@ -20,7 +20,7 @@ from utils.visualization import (
     generate_autocad_script,
     create_obstacle_figure,
 )
-from utils.io import (
+from ceyehao.utils.io import (
     read_obs_param,
     write_obs_param,
     read_obs_param_list,
@@ -32,7 +32,22 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, cfg, *args, obj=None, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
         print("Initializing the app...")
-        uic.loadUi("gui/mainwindow.ui", self)
+        # Try to find the UI file in different possible locations
+        ui_paths = [
+            "ceyehao/gui/mainwindow.ui",
+            "gui/mainwindow.ui",
+            os.path.join(os.path.dirname(__file__), "mainwindow.ui")
+        ]
+        
+        ui_loaded = False
+        for ui_path in ui_paths:
+            if os.path.exists(ui_path):
+                uic.loadUi(ui_path, self)
+                ui_loaded = True
+                break
+        
+        if not ui_loaded:
+            raise FileNotFoundError(f"Could not find mainwindow.ui in any of: {ui_paths}")
         # set window title
         self.setWindowTitle(
             "FlowFormer: Microfluidic Channel Design For Custom Flow Shapes"
