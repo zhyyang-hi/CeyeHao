@@ -6,7 +6,7 @@ from scipy.optimize import minimize_scalar
 import torch
 from typing import Union
 
-from utils.visualization import plot_obstacle, create_obstacle_figure, fig2np
+from ceyehao.utils.visualization import plot_obstacle, create_obstacle_figure, fig2np
 
 
 def gen_pin_tensor(

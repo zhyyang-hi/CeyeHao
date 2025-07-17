@@ -8,14 +8,28 @@ import os
 import argparse
 from pathlib import Path
 
-from ceyehao.gui.app import MainWindow
-from ceyehao.config.config import parse_args, list_config, build_default_cfg, build_argparser
-from ceyehao.utils.io import load_cfg_yml
-from PyQt5.QtWidgets import QApplication
+# Only keep config imports needed for argument parsing
+from ceyehao.config.config import build_default_cfg, build_argparser, parse_args, list_config
 
+# Add a function to print the default config
+
+def print_default_cfg(args=None):
+    """Save the default config as a YAML file in the current working directory and inform the user."""
+    import os
+    import yaml
+    cfg = build_default_cfg()
+    save_path = os.path.join(os.getcwd(), "default_config.yaml")
+    from ceyehao.utils.io import dump_cfg_yml
+    dump_cfg_yml(cfg, save_path)
+    print(f"Default config saved to: {save_path}")
+
+# Move heavy imports inside functions
 
 def launch_gui(args=None):
     """Launch the CeyeHao GUI application."""
+    from ceyehao.gui.app import MainWindow
+    from ceyehao.utils.io import load_cfg_yml
+    from PyQt5.QtWidgets import QApplication
     if args is None:
         args = parse_args([])
     if getattr(args, 'cfg_path', None):
@@ -62,6 +76,10 @@ def main():
     # Search subparser (full config parser)
     search_parser = subparsers.add_parser("search", help="Run search (random or GA)", parents=[build_argparser()], add_help=False)
     search_parser.set_defaults(func=search)
+
+    # Default config subparser
+    default_cfg_parser = subparsers.add_parser("default-cfg", help="Print the default config")
+    default_cfg_parser.set_defaults(func=print_default_cfg)
 
     parser.add_argument(
         "--version",

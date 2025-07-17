@@ -1,11 +1,12 @@
 import os
 import pickle
 from easydict import EasyDict
-from utils.utils import mkdirs
 import re
 import yaml
 import copy
 import numpy as np
+
+from ceyehao.utils.utils import mkdirs
 
 
 def pickle_load_config(infer_weight_path):

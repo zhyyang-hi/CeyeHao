@@ -6,7 +6,7 @@ import torch
 import torchvision
 import torch.nn.functional as F
 from torchmetrics.functional.image import image_gradients
-from models.gvtn.gvtn_loss import LossGvtn
+from ceyehao.models.gvtn.gvtn_loss import LossGvtn
 
 
 class LossFunc:

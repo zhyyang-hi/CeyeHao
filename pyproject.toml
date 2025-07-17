@@ -9,12 +9,12 @@ description = "AI-driven microfluidic flow programming using hierarchically asse
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Zhenyu Yang, Zhongning Jiang, Haisong Lin, Edmund Y. Lam, Hayden Kwok-Hay So, Ho Cheung Shum"},
-    {email = "elam@eee.hku.hk"}
+    {name = "Zhenyu Yang, Zhongning Jiang"},
+    {email = "zhyyang@connect.hku.hk"}
 ]
 maintainers = [
-    {name = "Zhenyu Yang, Zhongning Jiang, Haisong Lin, Edmund Y. Lam, Hayden Kwok-Hay So, Ho Cheung Shum"},
-    {email = "elam@eee.hku.hk"}
+    {name = "Zhenyu Yang"},
+    {email = "zhyyang@connect.hku.hk"}
 ]
 keywords = ["microfluidics", "ai", "neural-network", "flow-programming", "biomedical"]
 classifiers = [

@@ -14,8 +14,8 @@ def read_requirements():
 setup(
     name="ceyehao",
     version="1.0.0",
-    author="Zhenyu Yang, Zhongning Jiang, Haisong Lin, Edmund Y. Lam, Hayden Kwok-Hay So, Ho Cheung Shum",
-    author_email="elam@eee.hku.hk, hso@eee.hku.hk, ashum@cityu.edu.hk",
+    author="Zhenyu Yang, Zhongning Jiang",
+    author_email="zhyyang@connect.hku.hk",
     description="AI-driven microfluidic flow programming using hierarchically assembled obstacles in microchannel and receptive-field-augmented neural network",
     long_description=read_readme(),
     long_description_content_type="text/markdown",

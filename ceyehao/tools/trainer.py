@@ -10,18 +10,17 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from data.dataset import FDataset
-from data.transform import TransformObsImg, TransformTT
-
-from models.archs import *
-from models.unetpp import Generic_UNetPlusPlus as Unetpp
-from models.gvtn.network import GVTN
-from tools.loss_functions import LossFunc
-from tools.scheduler import CosineWarmupLr
-from tools.acc_metrics import *
-from utils.utils import create_logger, plot_line
-from utils.io import dump_cfg_yml
-from config.config import MODE, SUPPORTED_MODELS, list_config
+from ceyehao.data.dataset import FDataset
+from ceyehao.data.transform import TransformObsImg, TransformTT
+from ceyehao.models.archs import *
+from ceyehao.models.unetpp import Generic_UNetPlusPlus as Unetpp
+from ceyehao.models.gvtn.network import GVTN
+from ceyehao.tools.loss_functions import LossFunc
+from ceyehao.tools.scheduler import CosineWarmupLr
+from ceyehao.tools.acc_metrics import *
+from ceyehao.utils.utils import create_logger, plot_line
+from ceyehao.utils.io import dump_cfg_yml
+from ceyehao.config.config import MODE, SUPPORTED_MODELS, list_config
 
 # manual seedings
 # random.seed(0)

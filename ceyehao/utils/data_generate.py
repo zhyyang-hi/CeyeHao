@@ -8,7 +8,7 @@ import pickle
 from tqdm import tqdm
 import os
 
-from utils.io import find_index
+from ceyehao.utils.io import find_index
 
 
 class HAOParamSampler:

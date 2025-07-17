@@ -6,15 +6,15 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-from models.archs import *
-from tools.trainer import Trainer
-from data.transform import TransformObsImg
-from utils.data_process import tt_convert, tt_postprocess, obs_params2imgs
-from utils.visualization import (
+from ceyehao.models.archs import *
+from ceyehao.tools.trainer import Trainer
+from ceyehao.data.transform import TransformObsImg
+from ceyehao.utils.data_process import tt_convert, tt_postprocess, obs_params2imgs
+from ceyehao.utils.visualization import (
     plot_tt_vf,
     create_obstacle_figure,
 )
-from utils.io import load_cfg_yml
+from ceyehao.utils.io import load_cfg_yml
 
 
 class TTPredictor(Trainer):

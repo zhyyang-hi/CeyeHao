@@ -4,7 +4,7 @@ import sys, os
 from gui.app import MainWindow
 from PyQt5.QtWidgets import QApplication
 from config.config import parse_args, list_config
-from utils.io import load_cfg_yml
+from ceyehao.utils.io import load_cfg_yml
 from easydict import EasyDict as edict
 
 args = parse_args()

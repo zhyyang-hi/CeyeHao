@@ -12,11 +12,11 @@ import pandas as pd
 
 matplotlib.use("agg")
 import matplotlib.pyplot as plt
-from tools.trainer import Trainer
-from utils.utils import mkdirs, Timer
-from utils.io import dump_cfg_yml
-from utils.data_process import tt_postprocess
-from utils.visualization import (
+from ceyehao.tools.trainer import Trainer
+from ceyehao.utils.utils import mkdirs, Timer
+from ceyehao.utils.io import dump_cfg_yml
+from ceyehao.utils.data_process import tt_postprocess
+from ceyehao.utils.visualization import (
     plot_tt_contour,
     plot_tt_contour_colormap,
     create_profile_figure,

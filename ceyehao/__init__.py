@@ -6,8 +6,8 @@ A Python package for microfluidic flow programming and design optimization.
 """
 
 __version__ = "1.0.0"
-__author__ = "Zhenyu Yang, Zhongning Jiang, Haisong Lin, Edmund Y. Lam, Hayden Kwok-Hay So, Ho Cheung Shum"
-__email__ = "elam@eee.hku.hk, hso@eee.hku.hk, ashum@cityu.edu.hk"
+__author__ = "Zhenyu Yang, Zhongning Jiang"
+__email__ = "zhyyang@connect.hku.hk"
 
 # Import main modules for easy access
 from . import config
