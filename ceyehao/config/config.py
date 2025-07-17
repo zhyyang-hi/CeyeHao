@@ -53,6 +53,13 @@ def build_argparser():
     # Search group
     search_group = parser.add_argument_group('Search Arguments', 'Arguments used for inverse design/search')
     search_group.add_argument(
+        "--search_mode",
+        type=str,
+        choices=["random", "ga"],
+        default="random",
+        help="Search mode: 'random' for InvDesign, 'ga' for genetic algorithm search."
+    )
+    search_group.add_argument(
         "--log_dir",
         type=str,
         default="",
