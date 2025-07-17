@@ -13,7 +13,7 @@ from ceyehao.config.config import build_default_cfg, build_argparser, parse_args
 
 # Add a function to print the default config
 
-def print_default_cfg(args=None):
+def export_default_cfg(args=None):
     """Save the default config as a YAML file in the current working directory and inform the user."""
     import os
     import yaml
@@ -47,14 +47,18 @@ def launch_gui(args=None):
 
 def train(args=None):
     """Run the training script."""
+    if args is None:
+        args = parse_args([])
     from ceyehao.train import main as train_main
-    train_main()
+    train_main(args)
 
 
 def search(args=None):
     """Run the search script."""
+    if args is None:
+        args = parse_args([])
     from ceyehao.search import main as search_main
-    search_main()
+    search_main(args)
 
 
 def main():
@@ -79,7 +83,7 @@ def main():
 
     # Default config subparser
     default_cfg_parser = subparsers.add_parser("default-cfg", help="Print the default config")
-    default_cfg_parser.set_defaults(func=print_default_cfg)
+    default_cfg_parser.set_defaults(func=export_default_cfg)
 
     parser.add_argument(
         "--version",

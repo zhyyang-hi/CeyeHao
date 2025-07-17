@@ -67,7 +67,8 @@ pip install -e .
 ceyehao gui                    # Launch the GUI
 ceyehao train                  # Run training
 ceyehao search                 # Run search
-ceyehao --help                 # Show help
+ceyehao default-cfg            # Export the default configuration yaml file
+ceyehao --help                 # Show help for all commands and options
 ```
 
 ### Option 2: Run Scripts Directly
@@ -85,6 +86,6 @@ python launch_gui.py           # Launch the GUI (legacy script)
 ```
 
 
-Configurations of traning, evaluation, and inferring are listed in `./config/template.yml` 
+Configurations of traning, evaluation, and inferring are listed in `ceyehao/config/template.yml` 
 
 For more details, please refer to the manuscript. 

@@ -2,7 +2,6 @@ import os
 from typing import *
 import pickle
 from tqdm import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
 
 import numpy as np
 import torch
@@ -10,14 +9,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from ceyehao.data.dataset import FDataset
-from ceyehao.data.transform import TransformObsImg, TransformTT
-from ceyehao.models.archs import *
-from ceyehao.models.unetpp import Generic_UNetPlusPlus as Unetpp
-from ceyehao.models.gvtn.network import GVTN
-from ceyehao.tools.loss_functions import LossFunc
-from ceyehao.tools.scheduler import CosineWarmupLr
-from ceyehao.tools.acc_metrics import *
 from ceyehao.utils.utils import create_logger, plot_line
 from ceyehao.utils.io import dump_cfg_yml
 from ceyehao.config.config import MODE, SUPPORTED_MODELS, list_config
@@ -50,18 +41,16 @@ class Trainer:
             self.acc_metric = self.create_acc_metric(self.cfg)
 
     def train(self):
-        with logging_redirect_tqdm([self.logger]):
-            self.logger.info("Config:\n" + list_config(self.cfg))
+        self.logger.info("Config:\n" + list_config(self.cfg))
         # export cfg with pickle
         dump_cfg_yml(self.cfg, os.path.join(self.log_dir, "cfg.yml"))
         with open(os.path.join(self.log_dir, "cfg.pickle"), "wb") as p:
             pickle.dump(self.cfg, p)
 
         # log model trainable paramters
-        with logging_redirect_tqdm([self.logger]):
-            self.logger.info(
-                "Trainable parameters: {}".format(self.get_number_of_parameters())
-            )
+        self.logger.info(
+            "Trainable parameters: {}".format(self.get_number_of_parameters())
+        )
         loss_rec = {"train": [], "val": []}
         acc_rec = {"train": [], "val": []}
         best_acc = 0
@@ -95,17 +84,16 @@ class Trainer:
 
             self.scheduler.step()
 
-            with logging_redirect_tqdm([self.logger]):
-                self.logger.info(
-                    "Epoch[{:0>3}/{:0>3}] \t Train loss: {:.6f} \t Train Acc: {:.4f} \t Valid Acc:{:.4f} \t LR:{} \n".format(
-                        epoch,
-                        self.cfg.train_cfg.max_epoch,
-                        loss_train,
-                        acc_train,
-                        acc_val,
-                        self.optimizer.param_groups[0]["lr"],
-                    )
+            self.logger.info(
+                "Epoch {:0>3}/{:0>3} \t Train loss: {:.6f} \t Train Acc: {:.4f} \t Valid Acc:{:.4f} \t LR:{} \n".format(
+                    epoch,
+                    self.cfg.train_cfg.max_epoch,
+                    loss_train,
+                    acc_train,
+                    acc_val,
+                    self.optimizer.param_groups[0]["lr"],
                 )
+            )
 
             # record train info
             loss_rec["train"].append(loss_train), loss_rec["val"].append(loss_val)
@@ -143,23 +131,23 @@ class Trainer:
 
                 save_path = os.path.join(self.log_dir, model_name)
                 torch.save(self.model.state_dict(), save_path)
-                with logging_redirect_tqdm([self.logger]):
-                    self.logger.info(
-                        "Best in Epoch {}, acc: {:.4f}".format(best_epoch, best_acc)
-                    )
+                self.logger.info(
+                    "Best in Epoch {}, acc: {:.4f}".format(best_epoch, best_acc)
+                )
 
         # finish
-        with logging_redirect_tqdm([self.logger]):
-            self.logger.info(
-                "{} trianing done, best acc: {:.4f}, in Epoch {}".format(
-                    model_name, best_acc, best_epoch
-                )
+        self.logger.info(
+            "{} trianing done, best acc: {:.4f}, in Epoch {}".format(
+                model_name, best_acc, best_epoch
             )
+        )
         self.logger.handlers.clear()
         self.logger = None
 
     @staticmethod
     def create_dataset(cfg):
+        from ceyehao.data.dataset import FDataset
+        from ceyehao.data.transform import TransformObsImg, TransformTT
         root_dir = cfg.data_cfg.data_root_dir
         tf_x = TransformObsImg(cfg)
         tf_y = TransformTT(cfg)
@@ -221,19 +209,23 @@ class Trainer:
         model = self.cfg.model
         model_cfg = self.cfg.model_cfg
         profile_size = self.cfg.profile_size
-
         if model == "UNet":
+            from ceyehao.models.archs import UNet
             model = UNet(output_size=profile_size, **model_cfg)
         elif model == "CEyeNet":
+            from ceyehao.models.archs import CEyeNet
             model = CEyeNet(output_size=profile_size, **model_cfg)
         elif model == "UNet++":
+            from ceyehao.models.unetpp import Generic_UNetPlusPlus as Unetpp
             model = Unetpp(**model_cfg)
         elif model == "AsymUNet":
+            from ceyehao.models.archs import AsymUNet
             model = AsymUNet(
                 output_size=profile_size,
                 **model_cfg,
             )
         elif model == "gvtn":
+            from ceyehao.models.gvtn.network import GVTN
             model = GVTN(
                 **model_cfg,
             )
@@ -244,14 +236,13 @@ class Trainer:
             model.load_state_dict(
                 torch.load(self.cfg.model_checkpoint, map_location="cpu")
             )
-            # if self.cfg.mode == "train":
-            #     with logging_redirect_tqdm([self.logger]):
-            #         self.logger.info(
-            #             f"Pretrained model is loaded from {self.cfg.model_checkpoint}"
-            #         )
-            # else:
-            #     tqdm.write(f"Loaded model from {self.cfg.model_checkpoint}")
-            #     model.eval()
+            if self.cfg.mode == "train":
+                self.logger.info(
+                    f"Pretrained model is loaded from {self.cfg.model_checkpoint}"
+                )
+            else:
+                tqdm.write(f"Loaded model from {self.cfg.model_checkpoint}")
+                model.eval()
         model.to(self.cfg.device)
         # tqdm.write("Model built.")
         self.model = model
@@ -273,6 +264,7 @@ class Trainer:
         return optimizer
 
     def create_scheduler(self, cfg):
+        from ceyehao.tools.scheduler import CosineWarmupLr
         if cfg.train_cfg.is_warmup:
             iter_per_epoch = len(self.train_loader)
             scheduler = CosineWarmupLr(
@@ -294,12 +286,14 @@ class Trainer:
         return scheduler
 
     def create_loss_f(self, cfg):
+        from ceyehao.tools.loss_functions import LossFunc
         loss_f = LossFunc(cfg)
         tqdm.write("Loss function created.")
         return loss_f
 
     @staticmethod
     def create_acc_metric(cfg):
+        from ceyehao.tools.acc_metrics import PixelwiseAccuracy
         acc_metric = PixelwiseAccuracy(cfg.pix_acc_cfg)
         tqdm.write("Accuracy metric created.")
         return acc_metric
@@ -357,17 +351,16 @@ class Trainer:
 
             # print train info by interval
             if i % cfg.train_cfg.log_interval == cfg.train_cfg.log_interval - 1:
-                with logging_redirect_tqdm([logger]):
-                    logger.info(
-                        "|Epoch[{}/{}]||batch[{}/{}]||batch_loss: {:.6f}||accuracy: {:.4f}|".format(
-                            epoch_idx,
-                            cfg.train_cfg.max_epoch,
-                            i + 1,
-                            len(data_loader),
-                            loss.item(),
-                            float(acc_accum / sample_count),
-                        )
+                logger.info(
+                    "  Epoch {}/{}  |  batch {}/{}  |  batch_loss: {:.6f}  |  accuracy: {:.4f}".format(
+                        epoch_idx,
+                        cfg.train_cfg.max_epoch,
+                        i + 1,
+                        len(data_loader),
+                        loss.item(),
+                        float(acc_accum / sample_count),
                     )
+                )
         # cal mean acc and loss
         loss_mean = np.mean(loss_sigma)  # mean loss of each epoch
         acc_mean = np.mean(float(acc_accum / sample_count))  # mean acc of each epoch

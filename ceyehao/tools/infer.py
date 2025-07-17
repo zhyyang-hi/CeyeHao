@@ -21,6 +21,7 @@ class TTPredictor(Trainer):
     """take raw data, apply transform, return the ready-to-use transformation tensor(s)."""
 
     def __init__(self, cfg=None):
+        #TODO retrieve the default config and model weights from online repository
         if cfg is None:  # create a default config
             cfg = load_cfg_yml("../log/CEyeNet/infer_cfg.yml")
         assert cfg.mode == "infer"

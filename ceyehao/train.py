@@ -3,9 +3,8 @@
 from ceyehao.config.config import parse_args
 
 
-def main():
+def main(args):
     """Run the training script."""
-    args = parse_args()
     if args.cfg_path:
         from ceyehao.utils.io import load_cfg_yml
         cfg = load_cfg_yml(args.cfg_path)
@@ -19,4 +18,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    main(args)

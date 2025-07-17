@@ -1,3 +1,4 @@
+from json import load
 from typing import Optional, Union
 from easydict import EasyDict
 import torch
@@ -162,103 +163,9 @@ def build_default_cfg():
     """
     Build a default config instance (EasyDict) with the same structure and values as template.yml.
     """
-    return EasyDict({
-        'mode': 'train',
-        'model': 'CEyeNet',
-        'model_checkpoint': '../log/CEyeNet/CEyeNet',
-        'profile_size': [200, 200],
-        'simg_res': [200, 200],
-        'device': 'cuda',
-        'amp': True,
-        'model_cfg': {
-            'unet_cfg': {
-                'base_num_features': 64,
-                'num_pool': 4,
-                'down_kwargs': {
-                    'block_type': 'conv',
-                    'num_conv': 2,
-                    'kernel_size': [3, 3],
-                    'dilation': [1, 1],
-                },
-                'up_kwargs': {
-                    'block_type': 'conv',
-                    'num_conv': 2,
-                    'kernel_size': [3, 3],
-                    'dilation': [1, 1],
-                },
-            },
-            'ceye_cfg': {
-                'compeye_kwargs': {
-                    'pool_type': 'avg',
-                    'tp_order': 'tile_first',
-                    'tile_factor': 7,
-                },
-            },
-            'unpp_cfg': {
-                'input_channels': 1,
-                'base_num_features': 64,
-                'num_classes': 2,
-                'num_pool': 4,
-                'profile_size': [200, 200],
-            },
-        },
-        'data_cfg': {
-            'tilepool': False,
-            'x_axial_flip': False,
-            'x_randinv': True,
-            'x_rand_axial_translate': True,
-            'sym_agmentation': 0,
-            'data_root_dir': '../dataset',
-            'dataset_size': [9000, 1000],
-            'train_bs': 8,
-            'valid_bs': 8,
-            'workers': 4,
-        },
-        'pix_acc_cfg': {
-            'op_flags': ['round', 'match'],
-            'matching_error_thresholds': 0.01,
-        },
-        'percep_acc_cfg': {
-            'include_pix_acc': True,
-            'perceptual_weights': [4, 4, 4, 4, 4],
-        },
-        'train_cfg': {
-            'max_epoch': 300,
-            'log_dir': '../log',
-            'log_interval': 225,
-            'lr_init': 0.001,
-            'factor': 0.1,
-            'milestones': [30, 80],
-            'weight_decay': 0.0005,
-            'momentum': 0.9,
-            'is_warmup': True,
-            'warmup_epochs': 1,
-            'lr_final': 1.0e-05,
-            'lr_warmup_init': 0.0,
-            'hist_grad': False,
-            'loss_weights': [1, 1, 1, 1],
-        },
-        'loss_cfg': {
-            'components': ['l1', 'l1_grad'],
-            'weights': [1, 1],
-        },
-        'eval_cfg': {
-            'result_dir': '',
-            'exports': {
-                'eval_results': True,
-                'cfg': True,
-                'model_checkpoint': False,
-                'plot': {
-                    'tt_pred': False,
-                    'tt_label': False,
-                },
-            },
-            'programs': {
-                'accuracy': True,
-                'time': True,
-            },
-        },
-    })
+    from ceyehao.utils.io import load_cfg_yml
+    cfg = load_cfg_yml('ceyehao/config/template.yml')
+    return cfg
 
 
 if __name__ == "__main__":

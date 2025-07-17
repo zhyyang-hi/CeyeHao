@@ -15,8 +15,7 @@ from ceyehao.config.config import parse_args
 from ceyehao.utils.utils import mkdirs
 from ceyehao.utils.data_process import img2fp_coords
 
-def main():
-    args = parse_args()
+def main(args):
     if args.search_mode == "random":
         LOG_DIR = mkdirs(args.log_dir, remove_old=True)
         TGT_PTH = args.tgt_pth
@@ -68,4 +67,5 @@ def main():
         raise ValueError(f"Unknown search_mode: {args.search_mode}")
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    main(args)
