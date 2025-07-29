@@ -266,6 +266,7 @@ class InflowCalculator:
         if self.verbose:
             print(f"flow rate ratio: {frr1, frr2, frr3}")
         return frr1, frr2, frr3
+    
 
     def calc_wr_ratio(self, frr1, frr2, frr3):
         frr1, frr2, frr3 = np.array((frr1, frr2, frr3))
@@ -283,6 +284,12 @@ class InflowCalculator:
         frr_l = self.area_func(l_bound)
         r_bound = np.apply_along_axis(np.roots, 0, self.coeff(frr_l + frr))[1]
         return r_bound
+    
+    def find_centered_bound(self, frr):
+        """solve the function 3x-4x**3=frr, where x is the half width of the band in [0,1]"""
+        coef = np.stack([np.full_like(frr, -4), np.zeros_like(frr), np.full_like(frr, 3),  -frr])
+        half_width = np.apply_along_axis(np.roots, 0, coef)[2]
+        return np.stack([0.5-half_width, 0.5+half_width])
 
     @staticmethod
     def estimate_fr_ratio(profile: np.ndarray, verbose=False):
