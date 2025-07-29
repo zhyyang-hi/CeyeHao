@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ceyehao"
+version = "1.0.0"
+description = "AI-driven microfluidic flow programming using hierarchically assembled obstacles in microchannel and receptive-field-augmented neural network"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Zhenyu Yang, Zhongning Jiang"},
+    {email = "zhyyang@connect.hku.hk"}
+]
+maintainers = [
+    {name = "Zhenyu Yang"},
+    {email = "zhyyang@connect.hku.hk"}
+]
+keywords = ["microfluidics", "ai", "neural-network", "flow-programming", "biomedical"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "opencv-python",
+    "tqdm",
+    "matplotlib",
+    "easydict",
+    "pandas",
+    "scipy",
+    "torchmetrics",
+    "pyqt5",
+    "palettable",
+    "pyyaml",
+    "scikit-image",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "black",
+    "flake8",
+    "mypy",
+]
+
+[project.urls]
+Homepage = "https://github.com/zhyyang-hi/CeyeHao"
+Repository = "https://github.com/zhyyang-hi/CeyeHao"
+Documentation = "https://github.com/zhyyang-hi/CeyeHao"
+"Bug Tracker" = "https://github.com/zhyyang-hi/CeyeHao/issues"
+
+[project.scripts]
+ceyehao = "ceyehao.cli:main"
+ceyehao-gui = "ceyehao.cli:launch_gui"
+ceyehao-train = "ceyehao.cli:train"
+ceyehao-search = "ceyehao.cli:search"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ceyehao*"]
+
+[tool.setuptools.package-data]
+ceyehao = ["config/*.yml", "config/*.pkl", "gui/*.ui"] 

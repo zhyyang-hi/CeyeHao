@@ -1,9 +1,9 @@
 import numpy as np
 import torchvision.transforms as tvtf
-from utils.data_process import tt_convert
 import torch
 from torchvision.transforms import InterpolationMode
 
+from ceyehao.utils.data_process import tt_convert
 
 class TransformObsImg:
     """transform obstacle image to Greyscale and resize to the neural input size tar_res, and optional flip"""

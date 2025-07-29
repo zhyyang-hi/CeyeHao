@@ -6,7 +6,7 @@ import torch
 import torchvision
 import torch.nn.functional as F
 from torchmetrics.functional.image import image_gradients
-from models.gvtn.gvtn_loss import LossGvtn
+
 
 
 class LossFunc:
@@ -59,6 +59,7 @@ class LossFunc:
         elif name == "REE":
             return self.relative_entropy_loss
         elif name == "gvtn_loss":
+            from ceyehao.models.gvtn.gvtn_loss import LossGvtn
             return LossGvtn(**self.gvtn_loss_config)
         else:
             raise ValueError(f"Unknown loss function: {name}")

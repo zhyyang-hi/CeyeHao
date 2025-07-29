@@ -4,8 +4,9 @@ from torch.utils.data import Dataset
 import numpy as np
 import cv2
 import os
-from utils.data_generate import find_index
 import random
+
+from ceyehao.utils.data_generate import find_index
 
 
 class FDataset(Dataset):

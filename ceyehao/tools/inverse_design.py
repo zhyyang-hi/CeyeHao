@@ -7,18 +7,18 @@ from queue import Empty
 import time
 from tqdm import tqdm
 
-from tools.infer import TTPredictor
-from tools.acc_metrics import PerceptualAccuracy, PixelwiseAccuracy
-from utils.utils import mkdirs, get_logger, Timer
-from utils.data_generate import HAOParamSampler
-from utils.data_process import (
+from ceyehao.tools.infer import TTPredictor
+from ceyehao.tools.acc_metrics import PerceptualAccuracy, PixelwiseAccuracy
+from ceyehao.utils.utils import mkdirs, get_logger, Timer
+from ceyehao.utils.data_generate import HAOParamSampler
+from ceyehao.utils.data_process import (
     p_transform,
     gen_pin_tensor,
     InflowCalculator,
     tt_synth,
     img2fp_coords
 )
-from utils.visualization import (
+from ceyehao.utils.visualization import (
     create_profile_figure,
     plot_fp_tensor,
 )

@@ -1,8 +1,8 @@
 import numpy as np
 from typing import Union
 
-from utils.data_process import tt_convert, p_transform, obs_params2imgs
-from tools.infer import TTPredictor
+from ceyehao.utils.data_process import tt_convert, p_transform, obs_params2imgs
+from ceyehao.tools.infer import TTPredictor
 
 
 class FlowSystem(object):

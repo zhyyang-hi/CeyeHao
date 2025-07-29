@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
 import sys, os
-from gui.app import MainWindow
+from ceyehao.gui.app import MainWindow
 from PyQt5.QtWidgets import QApplication
-from config.config import parse_args, list_config
-from utils.io import load_cfg_yml
-from easydict import EasyDict as edict
+from ceyehao.config.config import parse_args, list_config
+from ceyehao.utils.io import load_cfg_yml
 
 args = parse_args()
 if args.cfg_path:
