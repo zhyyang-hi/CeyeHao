@@ -164,7 +164,9 @@ def build_default_cfg():
     Build a default config instance (EasyDict) with the same structure and values as template.yml.
     """
     from ceyehao.utils.io import load_cfg_yml
-    cfg = load_cfg_yml('ceyehao/config/template.yml')
+    cfg_path = os.path.join(os.path.dirname(__file__), 'template.yml')
+    cfg = load_cfg_yml(cfg_path)
+    # cfg = load_cfg_yml('ceyehao/config/template.yml')
     return cfg
 
 

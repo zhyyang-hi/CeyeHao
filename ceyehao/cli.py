@@ -40,6 +40,7 @@ def launch_gui(args=None):
         cfg = build_default_cfg()
         cfg.mode = 'infer'
         cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        cfg.model_checkpoint = os.path.join(os.path.dirname(__file__), '..','..','log','CEyeNet', 'CEyeNet')
 
     app = QApplication(sys.argv)
     window = MainWindow(cfg=cfg)
