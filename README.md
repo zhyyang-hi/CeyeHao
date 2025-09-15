@@ -41,6 +41,7 @@ The complete directory tree of the codes and data is shown below.
 ├── log
 |   └── CEyeNet
 |       ├── CEyeNet
+|       ├── infer_cfg.yml
 |       └── ...
 ├── auto_search
 |   └── target_profile.png
@@ -85,7 +86,16 @@ python ceyehao/search.py       # Automatically search the microchannel design
 python launch_gui.py           # Launch the GUI (legacy script)
 ```
 
+## Notes
+1. To use Nvidia GPU and CUDA
+  ```bash
+  # uninstall the pytorch cpu version
+  pip uninstall torch torchvision torchaudio
+  # and install the appropriate version of pytorch following the instructions from pytorch official website:
+  # https://pytorch.org/get-started/locally/ 
+  ```  
+  
 
-Configurations of traning, evaluation, and inferring are listed in `ceyehao/config/template.yml` 
+2. Configurations of traning, evaluation, and inferring are listed in `ceyehao/config/template.yml` 
 
-For more details, please refer to the manuscript. 
+3. For more details, please refer to the manuscript. 
