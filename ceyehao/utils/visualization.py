@@ -50,7 +50,7 @@ if "pastel5" not in mpl.colormaps:
 
 
 def plot_tt_vf(
-    tt: Union[torch.Tensor, np.ndarray], ax: mpl.axes.Axes, plot_res=[10, 10]
+    tt: Union[torch.Tensor, np.ndarray], ax: mpl.axes.Axes=None, plot_res=[10, 10]
 ):
     """input tensor (the dimension of displacement [x, y] are dim 0); or
     input  array (the dimension of displ [x, y] are dim 2 )
@@ -63,6 +63,10 @@ def plot_tt_vf(
         tt = tt.detach().cpu().numpy()
         tt = tt.transpose((1, 2, 0))
     res = tt.shape[0:2]
+    if ax is None:
+        fig, ax = create_profile_figure()
+    else:
+        fig = ax.get_figure()
     ax.cla()
     steps = (np.array(res) / np.array(plot_res)).round().astype("int16")
     step_y, step_z = np.maximum(steps, 1)
@@ -89,7 +93,7 @@ def plot_tt_vf(
 
 def plot_tt_streamline(
     tt: Union[torch.Tensor, np.ndarray],
-    ax: mpl.axes.Axes,
+    ax: mpl.axes.Axes=None,
     vmin=None,
     vmax=None,
     cmap="pastel5",  # registered above
@@ -108,6 +112,11 @@ def plot_tt_streamline(
     res = tt.shape[0:2]
     # replace the NaN values with 0
     tt[np.isnan(tt)] = 0
+
+    if ax is None:
+        fig, ax = create_profile_figure()
+    else:
+        fig = ax.get_figure()
     ax.cla()
     # delete cbar in the figure if exist
     if hasattr(ax, "cbar"):
@@ -153,7 +162,7 @@ def plot_tt_streamline(
 
 def plot_tt_contour(
     tt,
-    ax,
+    ax=None,
     mode: Literal["hsv", "rgb"] = "hsv",
     cmin=None,
     cmax=None,
@@ -161,6 +170,10 @@ def plot_tt_contour(
     vmax=None,
     iscolormap=False,
 ):
+    if ax is None:
+        fig, ax = create_profile_figure()
+    else:
+        fig = ax.get_figure()
     ax.cla()
     ax.axis("equal")
     if mode == "hsv":
@@ -319,6 +332,11 @@ def plot_obstacle(
         y = torch.cat((p[2::3], torch.flip(p[2::3], dims=(0,))))
         xy = torch.stack((x, y), dim=1)
 
+    if ax is None:
+        fig, ax = create_obstacle_figure()
+    else:
+        fig = ax.get_figure()
+        
     if hasattr(ax, "obs_patch"):
         ax.obs_patch.set(xy=xy, color=color, linewidth=0)
     else:
