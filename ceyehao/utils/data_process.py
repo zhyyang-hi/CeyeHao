@@ -189,7 +189,7 @@ def obs_params2imgs(obs_coords, obs_pos, ax=None):
 
     if obs_coords.ndim == 1:
         obs_coords = obs_coords[np.newaxis, :]
-        obs_pos = obs_pos[np.newaxis, :]
+        obs_pos = np.array([obs_pos,])
 
     obs_imgs = []
     for param, pos in zip(obs_coords, obs_pos):
