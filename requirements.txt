@@ -3,11 +3,12 @@
 
 opencv-python
 tqdm
-matplotlib
+matplotlib==3.8.0
 easydict
 pandas
 scipy
 torchmetrics
+torchvision
 pyqt5
 palettable 
 pyyaml

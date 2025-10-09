@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys, os
+import torch
 from ceyehao.gui.app import MainWindow
 from PyQt5.QtWidgets import QApplication
 from ceyehao.config.config import parse_args, list_config
@@ -12,6 +13,7 @@ if args.cfg_path:
 else:
     print("No cfg is provided. Loading default CEyeNet.")
     cfg = load_cfg_yml(r"../log/CEyeNet/infer_cfg.yml")
+    cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 app = QApplication(sys.argv)
 window = MainWindow(cfg=cfg)

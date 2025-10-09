@@ -7,6 +7,7 @@ import sys
 import os
 import argparse
 from pathlib import Path
+import torch
 
 # Only keep config imports needed for argument parsing
 from ceyehao.config.config import build_default_cfg, build_argparser, parse_args, list_config
@@ -37,6 +38,9 @@ def launch_gui(args=None):
     else:
         print("No cfg is provided. Using built-in default config.")
         cfg = build_default_cfg()
+        cfg.mode = 'infer'
+        cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        cfg.model_checkpoint = os.path.join(os.path.dirname(__file__), '..','..','log','CEyeNet', 'CEyeNet')
 
     app = QApplication(sys.argv)
     window = MainWindow(cfg=cfg)
